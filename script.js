@@ -466,15 +466,24 @@
   }
 
   function downloadBlob(content, filename, mimeType) {
-    var blob = new Blob([content], { type: mimeType });
-    var url  = URL.createObjectURL(blob);
-    var a    = document.createElement('a');
-    a.href     = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    var blob  = new Blob([content], { type: mimeType });
+    var url   = URL.createObjectURL(blob);
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    if (isIOS) {
+      // `a.download` on iOS saves to Files and bypasses MIME-type handling,
+      // so Calendar never gets the file. Navigating directly lets Safari
+      // detect text/calendar and hand it off to the Calendar app.
+      window.location.href = url;
+    } else {
+      var a    = document.createElement('a');
+      a.href     = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   }
 
   // ─── TAB NAVIGATION ───────────────────────────────────────────────────────
