@@ -2,23 +2,27 @@
   'use strict';
 
   // ─── CONSTANTS ────────────────────────────────────────────────────────────
-  const STORAGE_BILLS    = 'bt_bills';
-  const STORAGE_PAYMENTS = 'bt_payments';
-  const CATEGORIES       = ['Housing', 'Utilities', 'Subscriptions', 'Insurance', 'Loans', 'Other'];
-  const ALARM_DAYS       = 3;
+  const STORAGE_BILLS        = 'bt_bills';
+  const STORAGE_PAYMENTS     = 'bt_payments';
+  const STORAGE_NOTIF        = 'bt_notif';
+  const STORAGE_NOTIF_SHOWN  = 'bt_notif_shown';
+  const CATEGORIES           = ['Housing', 'Utilities', 'Subscriptions', 'Insurance', 'Loans', 'Other'];
 
   // ─── STATE ────────────────────────────────────────────────────────────────
-  let bills        = [];
-  let payments     = [];
-  let activeTab    = 'bills';
-  let trackerYear  = 0;
-  let trackerMonth = 0;
+  let bills         = [];
+  let payments      = [];
+  let notifSettings = { enabled: false, daysBefore: 3 };
+  let activeTab     = 'bills';
+  let trackerYear   = 0;
+  let trackerMonth  = 0;
 
   // ─── STORAGE ──────────────────────────────────────────────────────────────
   function loadData() {
     try {
       bills    = JSON.parse(localStorage.getItem(STORAGE_BILLS)    || '[]');
       payments = JSON.parse(localStorage.getItem(STORAGE_PAYMENTS) || '[]');
+      var ns   = JSON.parse(localStorage.getItem(STORAGE_NOTIF)    || 'null');
+      if (ns) notifSettings = ns;
     } catch (e) {
       bills    = [];
       payments = [];
@@ -27,6 +31,7 @@
 
   function saveBills()    { localStorage.setItem(STORAGE_BILLS,    JSON.stringify(bills));    }
   function savePayments() { localStorage.setItem(STORAGE_PAYMENTS, JSON.stringify(payments)); }
+  function saveNotif()    { localStorage.setItem(STORAGE_NOTIF,    JSON.stringify(notifSettings)); }
 
   // ─── ID GENERATION ────────────────────────────────────────────────────────
   function genId() {
@@ -197,8 +202,8 @@
     var monthKey = toMonthKey(new Date(trackerYear, trackerMonth, 1));
     document.getElementById('monthLabel').textContent = formatMonth(trackerYear, trackerMonth);
 
-    var tbody      = document.getElementById('trackerTableBody');
-    var emptyMsg   = document.getElementById('trackerEmpty');
+    var tbody    = document.getElementById('trackerTableBody');
+    var emptyMsg = document.getElementById('trackerEmpty');
     tbody.innerHTML = '';
 
     var activeBills = getBillsForMonth();
@@ -263,9 +268,9 @@
     var maxVal    = Math.max.apply(null, Object.values(totals).concat([1]));
 
     monthKeys.forEach(function (key) {
-      var val  = totals[key];
-      var pct  = Math.round((val / maxVal) * 100);
-      var info = parseMonthKey(key);
+      var val   = totals[key];
+      var pct   = Math.round((val / maxVal) * 100);
+      var info  = parseMonthKey(key);
       var label = new Date(info.year, info.month, 1)
         .toLocaleDateString('en-US', { month: 'short' });
 
@@ -313,14 +318,12 @@
 
     var today = new Date(); today.setHours(0, 0, 0, 0);
     upcoming.forEach(function (item) {
-      var diff  = Math.round((item.dueDate - today) / 86400000);
-      var when  = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : 'In ' + diff + ' days';
+      var diff      = Math.round((item.dueDate - today) / 86400000);
+      var when      = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : 'In ' + diff + ' days';
       var dateLabel = item.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      var urgent = diff <= 3 ? 'due-item--urgent' : '';
-
-      // Check if already paid this month
-      var mKey    = toMonthKey(item.dueDate);
-      var isPaid  = !!getPayment(item.bill.id, mKey);
+      var urgent    = diff <= 3 ? 'due-item--urgent' : '';
+      var mKey      = toMonthKey(item.dueDate);
+      var isPaid    = !!getPayment(item.bill.id, mKey);
 
       var li = document.createElement('li');
       li.className = 'due-item ' + urgent + (isPaid ? ' due-item--paid' : '');
@@ -398,92 +401,141 @@
     document.getElementById('payModal').hidden = true;
   }
 
-  // ─── ICS EXPORT ───────────────────────────────────────────────────────────
-  function generateICS() {
-    var CRLF = '\r\n';
-    var now  = new Date();
-
-    function fold(line) {
-      if (line.length <= 75) return line;
-      var out = '';
-      while (line.length > 75) {
-        out  += line.slice(0, 75) + CRLF + ' ';
-        line  = line.slice(75);
-      }
-      return out + line;
-    }
-
-    function icsDate(date) {
-      return date.getFullYear() +
-        String(date.getMonth() + 1).padStart(2, '0') +
-        String(date.getDate()).padStart(2, '0');
-    }
-
-    function icsDTSTAMP() {
-      return now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
-    }
-
-    var lines = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//Bill Tracker//EN',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-      'X-WR-CALNAME:Bill Tracker',
-    ];
-
-    var activeBills = bills.filter(function (b) { return b.active; });
-
-    for (var offset = 0; offset < 12; offset++) {
-      var totalMonths = now.getMonth() + offset;
-      var eventYear   = now.getFullYear() + Math.floor(totalMonths / 12);
-      var eventMonth  = totalMonths % 12;
-
-      activeBills.forEach(function (bill) {
-        var dueDate = new Date(eventYear, eventMonth, bill.dueDay);
-        var uid     = bill.id + '-' + eventYear + '-' + String(eventMonth + 1).padStart(2, '0') + '@bill-tracker';
-        var summary = bill.name + ' due - ' + formatMoney(bill.amount);
-
-        lines.push('BEGIN:VEVENT');
-        lines.push(fold('UID:' + uid));
-        lines.push('DTSTAMP:' + icsDTSTAMP());
-        lines.push('DTSTART;VALUE=DATE:' + icsDate(dueDate));
-        lines.push('DTEND;VALUE=DATE:' + icsDate(dueDate));
-        lines.push(fold('SUMMARY:' + summary));
-        lines.push(fold('DESCRIPTION:Category: ' + bill.category + ' | Amount: ' + formatMoney(bill.amount)));
-        lines.push('CATEGORIES:' + bill.category.toUpperCase());
-        lines.push('BEGIN:VALARM');
-        lines.push('ACTION:DISPLAY');
-        lines.push(fold('DESCRIPTION:Reminder: ' + summary));
-        lines.push('TRIGGER:-P' + ALARM_DAYS + 'D');
-        lines.push('END:VALARM');
-        lines.push('END:VEVENT');
-      });
-    }
-
-    lines.push('END:VCALENDAR');
-    return lines.join(CRLF) + CRLF;
+  // ─── NOTIFICATIONS ────────────────────────────────────────────────────────
+  function notifSupported() {
+    return 'Notification' in window;
   }
 
-  function downloadBlob(content, filename, mimeType) {
-    var blob  = new Blob([content], { type: mimeType });
-    var url   = URL.createObjectURL(blob);
-    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  function updateNotifUI() {
+    var btn    = document.getElementById('notifBtn');
+    var bar    = document.getElementById('notifBar');
+    var select = document.getElementById('notifDaysSelect');
 
-    if (isIOS) {
-      // `a.download` on iOS saves to Files and bypasses MIME-type handling,
-      // so Calendar never gets the file. Navigating directly lets Safari
-      // detect text/calendar and hand it off to the Calendar app.
-      window.location.href = url;
-    } else {
-      var a    = document.createElement('a');
-      a.href     = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+    if (!notifSupported()) {
+      btn.hidden = true;
+      return;
     }
+
+    select.value = String(notifSettings.daysBefore);
+
+    if (notifSettings.enabled && Notification.permission === 'granted') {
+      var d = notifSettings.daysBefore;
+      btn.textContent = '🔔 ' + d + ' day' + (d > 1 ? 's' : '') + ' before';
+      btn.classList.remove('btn--ghost');
+      btn.classList.add('btn--success');
+      bar.hidden = false;
+    } else {
+      btn.textContent = '🔔 Enable Reminders';
+      btn.classList.add('btn--ghost');
+      btn.classList.remove('btn--success');
+      bar.hidden = true;
+    }
+  }
+
+  function enableNotifications() {
+    if (!notifSupported()) return;
+
+    if (Notification.permission === 'granted') {
+      notifSettings.enabled = true;
+      saveNotif();
+      updateNotifUI();
+      checkAndNotify();
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(function (permission) {
+        if (permission === 'granted') {
+          notifSettings.enabled = true;
+          saveNotif();
+          updateNotifUI();
+          checkAndNotify();
+        } else {
+          alert('Notification permission was not granted. You can enable it later in your browser settings.');
+        }
+      });
+    } else {
+      alert('Notifications are blocked for this site. Please enable them in your browser or system settings, then try again.');
+    }
+  }
+
+  function disableNotifications() {
+    notifSettings.enabled = false;
+    saveNotif();
+    updateNotifUI();
+  }
+
+  function checkAndNotify() {
+    if (!notifSettings.enabled || !notifSupported() || Notification.permission !== 'granted') return;
+
+    var today    = new Date(); today.setHours(0, 0, 0, 0);
+    var todayStr = today.toISOString().slice(0, 10);
+    var shown    = {};
+    try { shown = JSON.parse(localStorage.getItem(STORAGE_NOTIF_SHOWN) || '{}'); } catch (e) {}
+
+    bills.filter(function (b) { return b.active; }).forEach(function (bill) {
+      // Check current and next month to catch bills crossing the month boundary
+      [0, 1].forEach(function (offset) {
+        var dueDate = new Date(today.getFullYear(), today.getMonth() + offset, bill.dueDay);
+        var diff    = Math.round((dueDate - today) / 86400000);
+
+        if (diff < 0 || diff > notifSettings.daysBefore) return;
+
+        var monthKey = toMonthKey(dueDate);
+        if (getPayment(bill.id, monthKey)) return;   // already paid this month
+
+        var notifKey = bill.id + '-' + monthKey;
+        if (shown[notifKey] === todayStr) return;     // already notified today
+
+        var title = diff === 0
+          ? bill.name + ' is due today!'
+          : bill.name + ' due in ' + diff + ' day' + (diff > 1 ? 's' : '');
+
+        try {
+          new Notification(title, {
+            body: 'Amount: ' + formatMoney(bill.amount) + ' · ' + bill.category,
+            tag:  notifKey,
+            icon: 'icon.svg',
+          });
+          shown[notifKey] = todayStr;
+        } catch (e) {}
+      });
+    });
+
+    localStorage.setItem(STORAGE_NOTIF_SHOWN, JSON.stringify(shown));
+  }
+
+  // ─── DATA BACKUP / RESTORE ────────────────────────────────────────────────
+  function exportData() {
+    var data = { bills: bills, payments: payments, exported: new Date().toISOString() };
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'bill-tracker-backup.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var data = JSON.parse(e.target.result);
+        if (!Array.isArray(data.bills)) throw new Error('Invalid format');
+        if (!confirm('Replace all current data with this backup? This cannot be undone.')) return;
+        bills    = data.bills;
+        payments = Array.isArray(data.payments) ? data.payments : [];
+        saveBills();
+        savePayments();
+        renderBillsTable();
+        if (activeTab === 'tracker')  renderTracker();
+        if (activeTab === 'analysis') renderAnalysis();
+        alert('Backup restored successfully.');
+      } catch (err) {
+        alert('Failed to restore: invalid backup file.');
+      }
+    };
+    reader.readAsText(file);
   }
 
   // ─── TAB NAVIGATION ───────────────────────────────────────────────────────
@@ -502,20 +554,26 @@
     if (tabName === 'analysis') renderAnalysis();
   }
 
+  // ─── SERVICE WORKER ───────────────────────────────────────────────────────
+  function registerSW() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(function (e) {
+        console.warn('SW registration failed:', e);
+      });
+    }
+  }
+
   // ─── EVENT WIRING ─────────────────────────────────────────────────────────
   function wireEvents() {
-    // Tab nav
     document.getElementById('tabNav').addEventListener('click', function (e) {
       var btn = e.target.closest('.tab-btn');
       if (btn) switchTab(btn.dataset.tab);
     });
 
-    // Bills tab: add button
     document.getElementById('addBillBtn').addEventListener('click', function () {
       openBillModal(null);
     });
 
-    // Bills table: edit / delete delegation
     document.getElementById('billsTableBody').addEventListener('click', function (e) {
       var edit = e.target.closest('.edit-bill-btn');
       var del  = e.target.closest('.delete-bill-btn');
@@ -523,14 +581,13 @@
       if (del)  deleteBill(del.dataset.id);
     });
 
-    // Bill modal: form submit
     document.getElementById('billForm').addEventListener('submit', function (e) {
       e.preventDefault();
-      var name    = document.getElementById('billName').value.trim();
-      var amount  = parseFloat(document.getElementById('billAmount').value);
-      var dueDay  = parseInt(document.getElementById('billDueDay').value, 10);
+      var name     = document.getElementById('billName').value.trim();
+      var amount   = parseFloat(document.getElementById('billAmount').value);
+      var dueDay   = parseInt(document.getElementById('billDueDay').value, 10);
       var category = document.getElementById('billCategory').value;
-      var active  = document.getElementById('billActive').checked;
+      var active   = document.getElementById('billActive').checked;
 
       if (!name || isNaN(amount) || amount <= 0 || isNaN(dueDay) || dueDay < 1 || dueDay > 28) {
         alert('Please fill in all fields correctly. Due day must be between 1 and 28.');
@@ -548,7 +605,6 @@
       if (e.target === document.getElementById('billModal')) closeBillModal();
     });
 
-    // Tracker: month navigation
     document.getElementById('prevMonthBtn').addEventListener('click', function () {
       trackerMonth--;
       if (trackerMonth < 0) { trackerMonth = 11; trackerYear--; }
@@ -560,7 +616,6 @@
       renderTracker();
     });
 
-    // Tracker table: mark paid / undo delegation
     document.getElementById('trackerTableBody').addEventListener('click', function (e) {
       var payBtn   = e.target.closest('.pay-btn');
       var unpayBtn = e.target.closest('.unpay-btn');
@@ -568,7 +623,6 @@
       if (unpayBtn) unmarkPaid(unpayBtn.dataset.billId, unpayBtn.dataset.month);
     });
 
-    // Pay modal: form submit
     document.getElementById('payForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var billId   = document.getElementById('payBillId').value;
@@ -590,17 +644,33 @@
       if (e.target === document.getElementById('payModal')) closePayModal();
     });
 
-    // ICS export
-    document.getElementById('exportIcsBtn').addEventListener('click', function () {
-      var active = bills.filter(function (b) { return b.active; });
-      if (active.length === 0) {
-        alert('No active bills to export. Add some bills first.');
-        return;
+    // Notification controls
+    document.getElementById('notifBtn').addEventListener('click', function () {
+      if (notifSettings.enabled && Notification.permission === 'granted') {
+        var bar = document.getElementById('notifBar');
+        bar.hidden = !bar.hidden;
+      } else {
+        enableNotifications();
       }
-      downloadBlob(generateICS(), 'bills.ics', 'text/calendar;charset=utf-8');
     });
 
-    // Close modals on Escape key
+    document.getElementById('notifDaysSelect').addEventListener('change', function () {
+      notifSettings.daysBefore = parseInt(this.value, 10);
+      saveNotif();
+      updateNotifUI();
+    });
+
+    document.getElementById('notifDisableBtn').addEventListener('click', disableNotifications);
+
+    // Data backup / restore
+    document.getElementById('exportDataBtn').addEventListener('click', exportData);
+    document.getElementById('importDataInput').addEventListener('change', function (e) {
+      if (e.target.files[0]) {
+        importData(e.target.files[0]);
+        e.target.value = '';
+      }
+    });
+
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
         closeBillModal();
@@ -612,11 +682,26 @@
   // ─── INIT ─────────────────────────────────────────────────────────────────
   function init() {
     loadData();
+
     var now      = new Date();
     trackerYear  = now.getFullYear();
     trackerMonth = now.getMonth();
+
     wireEvents();
+    registerSW();
+    updateNotifUI();
+
+    // Ask the browser to treat this site's storage as durable (won't be auto-cleared)
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist();
+    }
+
     renderBillsTable();
+
+    // Fire any pending notifications after a short delay so the page finishes loading
+    if (notifSettings.enabled) {
+      setTimeout(checkAndNotify, 800);
+    }
   }
 
   init();

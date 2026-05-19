@@ -3,15 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bill Tracker">
   <title>Bill Tracker</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
     <header class="app-header">
       <h1>Bill Tracker</h1>
-      <button class="btn btn--accent" id="exportIcsBtn">Export to Calendar</button>
+      <button class="btn btn--ghost btn--sm" id="notifBtn">&#128276; Enable Reminders</button>
     </header>
+
+    <div class="notif-bar" id="notifBar" hidden>
+      <span class="notif-bar-text">Remind me</span>
+      <select id="notifDaysSelect" class="notif-select">
+        <option value="1">1 day</option>
+        <option value="3" selected>3 days</option>
+        <option value="5">5 days</option>
+        <option value="7">7 days</option>
+      </select>
+      <span class="notif-bar-text">before due dates</span>
+      <button class="btn btn--ghost btn--sm" id="notifDisableBtn">Disable</button>
+    </div>
 
     <nav class="tab-nav" id="tabNav">
       <button class="tab-btn active" data-tab="bills">Bills</button>
@@ -43,6 +60,11 @@
           </table>
         </div>
         <p class="empty-state" id="billsEmpty">No bills yet. Click "+ Add Bill" to get started.</p>
+        <div class="data-actions">
+          <button class="btn btn--ghost btn--sm" id="exportDataBtn">&#8595; Backup Data</button>
+          <label class="btn btn--ghost btn--sm" for="importDataInput">&#8593; Restore Backup</label>
+          <input type="file" id="importDataInput" accept=".json" style="display:none">
+        </div>
       </section>
 
       <!-- TRACKER TAB -->

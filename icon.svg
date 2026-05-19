@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="18" fill="#1a1a2e"/>
+  <rect x="18" y="30" width="64" height="48" rx="6" fill="#16213e"/>
+  <rect x="18" y="30" width="64" height="16" rx="0" fill="#0f3460"/>
+  <rect x="18" y="30" width="64" height="16" rx="6" fill="#0f3460"/>
+  <text x="50" y="42" font-family="Arial,sans-serif" font-size="9" font-weight="bold" fill="#e94560" text-anchor="middle" letter-spacing="1">BILLS</text>
+  <line x1="28" y1="58" x2="50" y2="58" stroke="#a0a0c0" stroke-width="3" stroke-linecap="round"/>
+  <line x1="28" y1="67" x2="56" y2="67" stroke="#a0a0c0" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="66" cy="62" r="11" fill="#0f9b8e"/>
+  <text x="66" y="67" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#fff" text-anchor="middle">$</text>
+</svg>
