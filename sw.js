@@ -1,4 +1,4 @@
-var CACHE = 'bill-tracker-v2';
+var CACHE = 'bill-tracker-v3';
 
 self.addEventListener('install', function () {
   self.skipWaiting();
@@ -14,11 +14,12 @@ self.addEventListener('activate', function (e) {
   );
 });
 
-// Network-first: always try to fetch fresh, fall back to cache for offline use
+// Network-first with cache: 'no-store' so GitHub Pages HTTP cache is bypassed.
+// Falls back to SW cache only when offline.
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request).then(function (response) {
+    fetch(e.request, { cache: 'no-store' }).then(function (response) {
       if (response && response.status === 200) {
         var clone = response.clone();
         caches.open(CACHE).then(function (cache) { cache.put(e.request, clone); });
