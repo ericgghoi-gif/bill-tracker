@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bill Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Bill Tracker</h1>
+      <button class="btn btn--accent" id="exportIcsBtn">Export to Calendar</button>
+    </header>
+
+    <nav class="tab-nav" id="tabNav">
+      <button class="tab-btn active" data-tab="bills">Bills</button>
+      <button class="tab-btn" data-tab="tracker">Tracker</button>
+      <button class="tab-btn" data-tab="analysis">Analysis</button>
+    </nav>
+
+    <main class="tab-panels">
+
+      <!-- BILLS TAB -->
+      <section class="tab-panel active" id="tab-bills">
+        <div class="panel-header">
+          <h2>My Bills</h2>
+          <button class="btn btn--accent" id="addBillBtn">+ Add Bill</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="billsTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Due Day</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="billsTableBody"></tbody>
+          </table>
+        </div>
+        <p class="empty-state" id="billsEmpty">No bills yet. Click "+ Add Bill" to get started.</p>
+      </section>
+
+      <!-- TRACKER TAB -->
+      <section class="tab-panel" id="tab-tracker">
+        <div class="month-nav">
+          <button class="btn btn--ghost" id="prevMonthBtn">&#8249;</button>
+          <span class="month-label" id="monthLabel"></span>
+          <button class="btn btn--ghost" id="nextMonthBtn">&#8250;</button>
+        </div>
+        <div class="tracker-summary" id="trackerSummary"></div>
+        <div class="table-wrap">
+          <table class="data-table" id="trackerTable">
+            <thead>
+              <tr>
+                <th>Bill</th>
+                <th>Category</th>
+                <th>Due Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="trackerTableBody"></tbody>
+          </table>
+        </div>
+        <p class="empty-state" id="trackerEmpty" hidden>No active bills. Add some in the Bills tab.</p>
+      </section>
+
+      <!-- ANALYSIS TAB -->
+      <section class="tab-panel" id="tab-analysis">
+
+        <div class="analysis-section">
+          <h3>Monthly Spending (Last 6 Months)</h3>
+          <div class="bar-chart-vertical" id="monthlyChart"></div>
+        </div>
+
+        <div class="analysis-section">
+          <h3>Spending by Category <span class="analysis-subtitle" id="categorySubtitle"></span></h3>
+          <div class="bar-chart-horizontal" id="categoryChart"></div>
+        </div>
+
+        <div class="analysis-section">
+          <h3>Upcoming Bills (Next 30 Days)</h3>
+          <ul class="due-list" id="dueList"></ul>
+        </div>
+
+        <div class="analysis-section">
+          <h3>Payment History</h3>
+          <div class="table-wrap">
+            <table class="data-table" id="historyTable">
+              <thead>
+                <tr>
+                  <th>Date Paid</th>
+                  <th>Bill</th>
+                  <th>Category</th>
+                  <th>Amount</th>
+                  <th>Month</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- ADD/EDIT BILL MODAL -->
+  <div class="modal-overlay" id="billModal" hidden>
+    <div class="modal">
+      <h2 id="modalTitle">Add Bill</h2>
+      <form id="billForm" novalidate>
+        <label>
+          Name
+          <input type="text" id="billName" placeholder="e.g. Netflix" required maxlength="60">
+        </label>
+        <label>
+          Amount ($)
+          <input type="number" id="billAmount" placeholder="0.00" min="0.01" step="0.01" required>
+        </label>
+        <label>
+          Due Day of Month (1–28)
+          <input type="number" id="billDueDay" placeholder="15" min="1" max="28" required>
+        </label>
+        <label>
+          Category
+          <select id="billCategory">
+            <option>Housing</option>
+            <option>Utilities</option>
+            <option>Subscriptions</option>
+            <option>Insurance</option>
+            <option>Loans</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="billActive" checked>
+          Active (recurring monthly)
+        </label>
+        <input type="hidden" id="billEditId">
+        <div class="modal-actions">
+          <button type="submit" class="btn btn--accent">Save</button>
+          <button type="button" class="btn btn--ghost" id="cancelBillBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MARK AS PAID MODAL -->
+  <div class="modal-overlay" id="payModal" hidden>
+    <div class="modal modal--sm">
+      <h2>Mark as Paid</h2>
+      <form id="payForm" novalidate>
+        <input type="hidden" id="payBillId">
+        <input type="hidden" id="payMonth">
+        <label>
+          Date Paid
+          <input type="date" id="payDate" required>
+        </label>
+        <label>
+          Amount Paid ($)
+          <input type="number" id="payAmount" min="0.01" step="0.01" required>
+        </label>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn--accent">Confirm</button>
+          <button type="button" class="btn btn--ghost" id="cancelPayBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
