@@ -22,6 +22,24 @@ body {
   min-height: 100vh;
 }
 
+/* ─── PULL TO REFRESH ────────────────────────────────────────────────────── */
+.pull-indicator {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 6px 16px;
+  border-radius: 0 0 var(--radius) var(--radius);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 300;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
 /* ─── APP SHELL ───────────────────────────────────────────────────────────── */
 .app {
   max-width: 960px;

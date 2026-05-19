@@ -796,6 +796,38 @@
     });
   }
 
+  // ─── PULL-TO-REFRESH ──────────────────────────────────────────────────────
+  function initPullToRefresh() {
+    var startY    = 0;
+    var threshold = 80;   // px of pull needed to trigger
+    var indicator = document.getElementById('pullIndicator');
+
+    document.addEventListener('touchstart', function (e) {
+      if (window.scrollY === 0) startY = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+      if (!startY) return;
+      var pullDistance = e.touches[0].clientY - startY;
+      if (pullDistance > 0 && window.scrollY === 0) {
+        var progress = Math.min(pullDistance / threshold, 1);
+        indicator.style.opacity  = String(progress);
+        indicator.style.transform = 'translateY(' + Math.min(pullDistance * 0.4, 36) + 'px)';
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function (e) {
+      if (!startY) return;
+      var pullDistance = e.changedTouches[0].clientY - startY;
+      indicator.style.opacity   = '0';
+      indicator.style.transform = 'translateY(0)';
+      startY = 0;
+      if (pullDistance >= threshold && window.scrollY === 0) {
+        location.reload();
+      }
+    }, { passive: true });
+  }
+
   // ─── INIT ─────────────────────────────────────────────────────────────────
   function init() {
     loadData();
@@ -807,6 +839,7 @@
     wireEvents();
     registerSW();
     updateNotifUI();
+    initPullToRefresh();
 
     // Ask the browser to treat this site's storage as durable (won't be auto-cleared)
     if (navigator.storage && navigator.storage.persist) {
