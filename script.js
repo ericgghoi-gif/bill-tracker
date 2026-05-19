@@ -6,6 +6,7 @@
   const STORAGE_PAYMENTS     = 'bt_payments';
   const STORAGE_NOTIF        = 'bt_notif';
   const STORAGE_NOTIF_SHOWN  = 'bt_notif_shown';
+  const STORAGE_SNOOZE       = 'bt_snooze';
   const CATEGORIES           = ['Housing', 'Utilities', 'Subscriptions', 'Insurance', 'Loans', 'Other'];
 
   // ─── STATE ────────────────────────────────────────────────────────────────
@@ -32,6 +33,42 @@
   function saveBills()    { localStorage.setItem(STORAGE_BILLS,    JSON.stringify(bills));    }
   function savePayments() { localStorage.setItem(STORAGE_PAYMENTS, JSON.stringify(payments)); }
   function saveNotif()    { localStorage.setItem(STORAGE_NOTIF,    JSON.stringify(notifSettings)); }
+
+  // ─── SNOOZE ───────────────────────────────────────────────────────────────
+  function getSnoozes() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_SNOOZE) || '{}'); } catch(e) { return {}; }
+  }
+
+  function snoozeUntil(billId, monthKey, days) {
+    var snoozes = getSnoozes();
+    snoozes[billId + '-' + monthKey] = Date.now() + days * 86400000;
+    localStorage.setItem(STORAGE_SNOOZE, JSON.stringify(snoozes));
+    renderTracker();
+  }
+
+  function clearSnooze(billId, monthKey) {
+    var snoozes = getSnoozes();
+    delete snoozes[billId + '-' + monthKey];
+    localStorage.setItem(STORAGE_SNOOZE, JSON.stringify(snoozes));
+    renderTracker();
+  }
+
+  function isSnoozed(billId, monthKey) {
+    var snoozes = getSnoozes();
+    var key = billId + '-' + monthKey;
+    if (!snoozes[key]) return false;
+    if (Date.now() > snoozes[key]) {
+      delete snoozes[key];
+      localStorage.setItem(STORAGE_SNOOZE, JSON.stringify(snoozes));
+      return false;
+    }
+    return true;
+  }
+
+  function snoozeDate(billId, monthKey) {
+    var ts = getSnoozes()[billId + '-' + monthKey];
+    return ts ? new Date(ts) : null;
+  }
 
   // ─── ID GENERATION ────────────────────────────────────────────────────────
   function genId() {
@@ -168,6 +205,15 @@
     if (activeTab === 'analysis') renderAnalysis();
   }
 
+  function updatePayment(billId, month, paidDate, amount) {
+    var idx = payments.findIndex(function (p) { return p.billId === billId && p.month === month; });
+    if (idx < 0) return;
+    payments[idx] = Object.assign({}, payments[idx], { paidDate: paidDate, amount: Number(amount) });
+    savePayments();
+    renderTracker();
+    if (activeTab === 'analysis') renderAnalysis();
+  }
+
   // ─── RENDER: BILLS TAB ────────────────────────────────────────────────────
   function renderBillsTable() {
     var tbody = document.getElementById('billsTableBody');
@@ -227,8 +273,30 @@
         String(trackerMonth + 1).padStart(2, '0') + '-' +
         String(bill.dueDay).padStart(2, '0');
 
+      var snoozed = !isPaid && isSnoozed(bill.id, monthKey);
+      var sd      = snoozed ? snoozeDate(bill.id, monthKey) : null;
+
       var tr = document.createElement('tr');
-      if (isPaid) tr.classList.add('row--paid');
+      if (isPaid)   tr.classList.add('row--paid');
+      if (snoozed)  tr.classList.add('row--snoozed');
+
+      var paidOnCell = isPaid
+        ? '<span class="paid-date">' + formatDateStr(payment.paidDate) + '</span>'
+        : snoozed
+          ? '<span class="snooze-label">Until ' + sd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>'
+          : '<span class="txt--muted">—</span>';
+
+      var actionCell = isPaid
+        ? '<button class="btn btn--sm btn--ghost edit-pay-btn" data-bill-id="' + bill.id + '" data-month="' + monthKey + '">Edit</button>'
+        : snoozed
+          ? '<button class="btn btn--sm btn--ghost clear-snooze-btn" data-bill-id="' + bill.id + '" data-month="' + monthKey + '">Clear</button>'
+          : '<select class="snooze-select" data-bill-id="' + bill.id + '" data-month="' + monthKey + '">' +
+              '<option value="">Snooze...</option>' +
+              '<option value="1">1 day</option>' +
+              '<option value="3">3 days</option>' +
+              '<option value="7">7 days</option>' +
+            '</select>';
+
       tr.innerHTML =
         '<td class="check-cell">' +
           '<input type="checkbox" class="pay-check"' +
@@ -241,9 +309,8 @@
         '<td><span class="badge badge--' + bill.category.toLowerCase() + '">' + bill.category + '</span></td>' +
         '<td>' + formatDateStr(dueDateStr) + '</td>' +
         '<td>' + formatMoney(bill.amount) + '</td>' +
-        '<td class="paid-on-cell">' + (isPaid
-          ? '<span class="paid-date">' + formatDateStr(payment.paidDate) + '</span>'
-          : '<span class="txt--muted">—</span>') + '</td>';
+        '<td class="paid-on-cell">' + paidOnCell + '</td>' +
+        '<td class="action-cell">' + actionCell + '</td>';
       tbody.appendChild(tr);
     });
 
@@ -391,12 +458,24 @@
   }
 
   // ─── MODAL: PAY ───────────────────────────────────────────────────────────
-  function openPayModal(billId, month) {
-    document.getElementById('payBillId').value = billId;
-    document.getElementById('payMonth').value  = month;
-    document.getElementById('payDate').value   = new Date().toISOString().slice(0, 10);
-    var bill = bills.find(function (b) { return b.id === billId; });
-    if (bill) document.getElementById('payAmount').value = bill.amount;
+  function openPayModal(billId, month, editMode) {
+    document.getElementById('payBillId').value   = billId;
+    document.getElementById('payMonth').value    = month;
+    document.getElementById('payEditMode').value = editMode ? 'edit' : '';
+    document.getElementById('payModalTitle').textContent = editMode ? 'Edit Payment' : 'Mark as Paid';
+
+    if (editMode) {
+      var existing = getPayment(billId, month);
+      if (existing) {
+        document.getElementById('payDate').value   = existing.paidDate;
+        document.getElementById('payAmount').value = existing.amount;
+      }
+    } else {
+      document.getElementById('payDate').value = new Date().toISOString().slice(0, 10);
+      var bill = bills.find(function (b) { return b.id === billId; });
+      if (bill) document.getElementById('payAmount').value = bill.amount;
+    }
+
     document.getElementById('payModal').hidden = false;
     document.getElementById('payDate').focus();
   }
@@ -494,6 +573,7 @@
 
         var monthKey = toMonthKey(dueDate);
         if (getPayment(bill.id, monthKey)) return;   // already paid this month
+        if (isSnoozed(bill.id, monthKey)) return;    // snoozed by user
 
         var notifKey = bill.id + '-' + monthKey;
         if (shown[notifKey] === todayStr) return;     // already notified today
@@ -631,14 +711,28 @@
     });
 
     document.getElementById('trackerTableBody').addEventListener('change', function (e) {
-      var check = e.target.closest('.pay-check');
-      if (!check) return;
-      if (check.checked) {
-        var today = new Date().toISOString().slice(0, 10);
-        markPaid(check.dataset.billId, check.dataset.month, today, parseFloat(check.dataset.amount));
-      } else {
-        unmarkPaid(check.dataset.billId, check.dataset.month);
+      var check  = e.target.closest('.pay-check');
+      var snooze = e.target.closest('.snooze-select');
+
+      if (check) {
+        if (check.checked) {
+          var today = new Date().toISOString().slice(0, 10);
+          markPaid(check.dataset.billId, check.dataset.month, today, parseFloat(check.dataset.amount));
+        } else {
+          unmarkPaid(check.dataset.billId, check.dataset.month);
+        }
       }
+
+      if (snooze && snooze.value) {
+        snoozeUntil(snooze.dataset.billId, snooze.dataset.month, parseInt(snooze.value, 10));
+      }
+    });
+
+    document.getElementById('trackerTableBody').addEventListener('click', function (e) {
+      var editBtn  = e.target.closest('.edit-pay-btn');
+      var clearBtn = e.target.closest('.clear-snooze-btn');
+      if (editBtn)  openPayModal(editBtn.dataset.billId, editBtn.dataset.month, true);
+      if (clearBtn) clearSnooze(clearBtn.dataset.billId, clearBtn.dataset.month);
     });
 
     document.getElementById('payForm').addEventListener('submit', function (e) {
@@ -653,7 +747,12 @@
         return;
       }
 
-      markPaid(billId, month, paidDate, amount);
+      var editMode = document.getElementById('payEditMode').value;
+      if (editMode === 'edit') {
+        updatePayment(billId, month, paidDate, amount);
+      } else {
+        markPaid(billId, month, paidDate, amount);
+      }
       closePayModal();
     });
 

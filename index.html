@@ -85,6 +85,7 @@
                 <th>Due Date</th>
                 <th>Amount</th>
                 <th>Paid On</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="trackerTableBody"></tbody>
@@ -174,13 +175,14 @@
     </div>
   </div>
 
-  <!-- MARK AS PAID MODAL -->
+  <!-- MARK AS PAID / EDIT PAYMENT MODAL -->
   <div class="modal-overlay" id="payModal" hidden>
     <div class="modal modal--sm">
-      <h2>Mark as Paid</h2>
+      <h2 id="payModalTitle">Mark as Paid</h2>
       <form id="payForm" novalidate>
         <input type="hidden" id="payBillId">
         <input type="hidden" id="payMonth">
+        <input type="hidden" id="payEditMode" value="">
         <label>
           Date Paid
           <input type="date" id="payDate" required>

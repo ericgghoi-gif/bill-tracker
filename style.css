@@ -475,9 +475,25 @@ body {
   flex-shrink: 0;
 }
 
-.paid-on-cell { color: var(--text-muted); font-size: 0.85rem; }
-.paid-date    { color: var(--success); font-size: 0.85rem; }
-.txt--muted   { color: var(--text-muted); }
+.paid-on-cell  { color: var(--text-muted); font-size: 0.85rem; }
+.paid-date     { color: var(--success); font-size: 0.85rem; }
+.txt--muted    { color: var(--text-muted); }
+.action-cell   { white-space: nowrap; }
+
+.snooze-select {
+  background: var(--surface-2);
+  border: 1px solid var(--surface-2);
+  border-radius: 6px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.snooze-select:focus { outline: none; border-color: var(--accent); }
+
+.snooze-label  { color: var(--text-muted); font-size: 0.8rem; font-style: italic; }
+.row--snoozed  { opacity: 0.6; }
 
 /* ─── NOTIFICATION BAR ───────────────────────────────────────────────────── */
 .btn--success { background: var(--success); color: #fff; }
