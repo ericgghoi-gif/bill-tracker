@@ -230,16 +230,20 @@
       var tr = document.createElement('tr');
       if (isPaid) tr.classList.add('row--paid');
       tr.innerHTML =
+        '<td class="check-cell">' +
+          '<input type="checkbox" class="pay-check"' +
+          ' data-bill-id="' + bill.id + '"' +
+          ' data-month="' + monthKey + '"' +
+          ' data-amount="' + bill.amount + '"' +
+          (isPaid ? ' checked' : '') + '>' +
+        '</td>' +
         '<td>' + escHtml(bill.name) + '</td>' +
         '<td><span class="badge badge--' + bill.category.toLowerCase() + '">' + bill.category + '</span></td>' +
         '<td>' + formatDateStr(dueDateStr) + '</td>' +
         '<td>' + formatMoney(bill.amount) + '</td>' +
-        '<td>' + (isPaid
-          ? '<span class="pill pill--paid">Paid ' + formatDateStr(payment.paidDate) + '</span>'
-          : '<span class="pill pill--unpaid">Unpaid</span>') + '</td>' +
-        '<td>' + (isPaid
-          ? '<button class="btn btn--sm btn--ghost unpay-btn" data-bill-id="' + bill.id + '" data-month="' + monthKey + '">Undo</button>'
-          : '<button class="btn btn--sm btn--accent pay-btn" data-bill-id="' + bill.id + '" data-month="' + monthKey + '">Mark Paid</button>') + '</td>';
+        '<td class="paid-on-cell">' + (isPaid
+          ? '<span class="paid-date">' + formatDateStr(payment.paidDate) + '</span>'
+          : '<span class="txt--muted">—</span>') + '</td>';
       tbody.appendChild(tr);
     });
 
@@ -626,11 +630,15 @@
       renderTracker();
     });
 
-    document.getElementById('trackerTableBody').addEventListener('click', function (e) {
-      var payBtn   = e.target.closest('.pay-btn');
-      var unpayBtn = e.target.closest('.unpay-btn');
-      if (payBtn)   openPayModal(payBtn.dataset.billId, payBtn.dataset.month);
-      if (unpayBtn) unmarkPaid(unpayBtn.dataset.billId, unpayBtn.dataset.month);
+    document.getElementById('trackerTableBody').addEventListener('change', function (e) {
+      var check = e.target.closest('.pay-check');
+      if (!check) return;
+      if (check.checked) {
+        var today = new Date().toISOString().slice(0, 10);
+        markPaid(check.dataset.billId, check.dataset.month, today, parseFloat(check.dataset.amount));
+      } else {
+        unmarkPaid(check.dataset.billId, check.dataset.month);
+      }
     });
 
     document.getElementById('payForm').addEventListener('submit', function (e) {

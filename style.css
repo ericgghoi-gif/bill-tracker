@@ -463,6 +463,22 @@ body {
   padding-top: 4px;
 }
 
+/* ─── TRACKER CHECKBOX ───────────────────────────────────────────────────── */
+.check-th  { width: 44px; }
+.check-cell { text-align: center; vertical-align: middle; }
+
+.pay-check {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--success);
+  flex-shrink: 0;
+}
+
+.paid-on-cell { color: var(--text-muted); font-size: 0.85rem; }
+.paid-date    { color: var(--success); font-size: 0.85rem; }
+.txt--muted   { color: var(--text-muted); }
+
 /* ─── NOTIFICATION BAR ───────────────────────────────────────────────────── */
 .btn--success { background: var(--success); color: #fff; }
 
