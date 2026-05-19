@@ -411,8 +411,15 @@
     var bar    = document.getElementById('notifBar');
     var select = document.getElementById('notifDaysSelect');
 
+    // Always show the button — even on iOS Safari where Notification isn't
+    // available yet (user needs to add to Home Screen first).
+    btn.hidden = false;
+
     if (!notifSupported()) {
-      btn.hidden = true;
+      btn.textContent = '🔔 Enable Reminders';
+      btn.classList.add('btn--ghost');
+      btn.classList.remove('btn--success');
+      bar.hidden = true;
       return;
     }
 
@@ -433,7 +440,10 @@
   }
 
   function enableNotifications() {
-    if (!notifSupported()) return;
+    if (!notifSupported()) {
+      alert('To enable reminders on iPhone:\n\n1. Tap the Share button (box with arrow) in Safari\n2. Tap "Add to Home Screen"\n3. Open the app from your Home Screen\n4. Tap "Enable Reminders" again\n\nReminders require iOS 16.4 or later.');
+      return;
+    }
 
     if (Notification.permission === 'granted') {
       notifSettings.enabled = true;
