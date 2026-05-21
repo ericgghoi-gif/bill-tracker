@@ -347,9 +347,10 @@
 
       var wrap = document.createElement('div');
       wrap.className = 'vbar-wrap';
+      wrap.style.setProperty('--pct', pct + '%');
       wrap.innerHTML =
         '<span class="vbar-value">' + formatMoney(val) + '</span>' +
-        '<div class="vbar" style="--pct:' + pct + '%"></div>' +
+        '<div class="vbar"></div>' +
         '<span class="vbar-label">' + label + '</span>';
       container.appendChild(wrap);
     });
